@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="説得ではなく遮断。どんな相談も論理的に、投げやりに。そして「いいから寝ろ。」">
+  <meta property="og:title" content="いいから寝ろ.com">
+  <meta property="og:description" content="説得ではなく遮断。夜の思考ループを強制終了。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>いいから寝ろ.com</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --bg: #0a0a0a;
+      --bg-dim: #050505;
+      --text: #e8e8e8;
+      --text-dim: #888;
+      --accent: #ff4444;
+      --border: #222;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 18px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.6s ease;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    
+    body.dim {
+      background: var(--bg-dim);
+    }
+    
+    body.night-mode {
+      filter: brightness(0.7);
+    }
+    
+    header {
+      padding: 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+    }
+    
+    .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      font-weight: 600;
+    }
+    
+    main {
+      flex: 1;
+      padding: 1rem;
+      max-width: 680px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #response-area {
+      flex: 1;
+      padding: 1.5rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      min-height: 200px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 1.05rem;
+      line-height: 1.8;
+      overflow-y: auto;
+    }
+    
+    #response-area:empty::before {
+      content: "なにか入力して送信してください";
+      color: var(--text-dim);
+      font-style: italic;
+    }
+    
+    #input-form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    #input-text {
+      flex: 1;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+    
+    #input-text:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    
+    button {
+      padding: 1rem 1.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-family: inherit;
+    }
+    
+    button:hover:not(:disabled) {
+      opacity: 0.85;
+    }
+    
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+    }
+    
+    footer {
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+    }
+    
+    .warning {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    
+    @media (max-width: 600px) {
+      body {
+        font-size: 16px;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
+      
+      #input-form {
+        flex-direction: column;
+      }
+      
+      button {
+        width: 100%;
+      }
+    }
+    
+    /* アクセシビリティ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+    
+    /* 高コントラスト */
+    @media (prefers-contrast: high) {
+      :root {
+        --bg: #000;
+        --text: #fff;
+        --border: #fff;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>いいから寝ろ.com</h1>
+    <p class="subtitle">説得ではなく遮断</p>
+    <span class="badge" id="night-badge" style="display: none;">🌙 夜間モード</span>
+  </header>
+  
+  <main>
+    <div id="response-area" role="log" aria-live="polite" aria-atomic="false"></div>
+    
+    <form id="input-form">
+      <textarea 
+        id="input-text" 
+        placeholder="なんでも相談してください…"
+        autocomplete="off"
+        required
+        maxlength="500"
+      ></textarea>
+      <button type="submit" id="submit-btn">送信</button>
+    </form>
+    
+    <div class="actions" id="actions" style="display: none;">
+      <button type="button" class="btn-secondary" id="share-x">𝕏で共有</button>
+      <button type="button" class="btn-secondary" id="share-line">LINEで共有</button>
+      <button type="button" class="btn-secondary" id="reset-btn">もう一度</button>
+    </div>
+  </main>
+  
+  <footer>
+    <p class="warning">⚠️ このサービスは医療助言を行いません</p>
+    <p>緊急時は <a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisatsu/soudan_tel.html" target="_blank" style="color: var(--accent);">公的相談窓口</a> をご利用ください</p>
+  </footer>
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
