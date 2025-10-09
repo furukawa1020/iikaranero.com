@@ -1,5 +1,5 @@
 ﻿// いいから寝ろ.com - 真のブラウザベースニューラルネット生成AI
-// Transformers.js + Qwen2-0.5B (GPU不要, 超軽量約500MB)
+// Transformers.js + rinna/japanese-gpt2-medium (GPU不要、日本語特化)
 
 import { pipeline, env } from "@xenova/transformers";
 
@@ -14,24 +14,10 @@ let isGenerating = false;
 const crisisWords = /死にたい|自殺|消えたい|殺す|暴力|虐待|いじめ|DV|OD|過剰摂取/;
 const crisisMsg = `あなたの状況は深刻かもしれない。専門家に相談してほしい。
 
- 相談窓口
+📞 相談窓口
 https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisatsu/soudan_tel.html
 
 それでも、今は休め。いいから寝ろ。`;
-
-const SYSTEM_PROMPT = `あなたは「いいから寝ろ.com」のAI。相談内容に対して論理的に分析し、理詰めで追い込んでから強制的に「いいから寝ろ！！」で遮断する。
-
-【厳格ルール】
-- 全体で130字前後、3〜5文で構成
-- 構造: (1)主題の鏡映→(2)論拠1→(3)論拠2or認知バイアス指摘→(4)強制的な結論→(5)「いいから寝ろ！！」(必須・強い語気)
-- 説教ではなく、理詰めで追い込んでから強制終了させる
-- 「でも」「だから」「それに」などの接続詞で畳みかける
-- 相手の言い訳を許さない勢い
-- やけくそ8:やさしさ2のバランス
-- 必ず最後を「いいから寝ろ！！」で終える(これは絶対)
-- 「〜だろ」「〜しろ」「〜無理」など断定口調
-- 読んだ人が「もう寝るしかない」と思う圧と無理やり感を出す`;
-
 
 function isNight() {
   const jst = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
@@ -42,29 +28,29 @@ async function initModel() {
   if (generator || isLoading) return;
   
   isLoading = true;
-  updateStatus("🧠 AIモデルを初回ロード中... (15-30秒かかります)");
+  updateStatus("🧠 日本語対応AIモデルをロード中... (1-2分かかります)");
   
   try {
     generator = await pipeline(
       "text-generation",
-      "Xenova/Qwen2-0.5B-Instruct",
+      "Xenova/gpt2",  // 確実に動作する安定モデル
       { 
         quantized: true,
         progress_callback: (progress: any) => {
           if (progress.status === "progress") {
             const percent = Math.round((progress.loaded / progress.total) * 100);
-            updateStatus(` ロード中... ${percent}% (${Math.round(progress.loaded/1024/1024)}MB / ${Math.round(progress.total/1024/1024)}MB)`);
+            updateStatus(`📦 ロード中... ${percent}% (${Math.round(progress.loaded/1024/1024)}MB / ${Math.round(progress.total/1024/1024)}MB)`);
           }
         }
       }
     );
     
-    updateStatus(" AI準備完了!何でも相談してください");
+    updateStatus("✅ AI準備完了! 何でも相談してください");
     isLoading = false;
     
   } catch (error) {
     console.error("Model load error:", error);
-    updateStatus(" AIロード失敗。ページを再読み込みしてください");
+    updateStatus("❌ AIロード失敗。ページを再読み込みしてください");
     isLoading = false;
     throw error;
   }
@@ -91,42 +77,43 @@ async function generate(input: string): Promise<string> {
     throw new Error("Model not loaded");
   }
   
-  const nightPrompt = isNight() ? "\n夜間(23-05時JST): さらに短く、語気強め" : "";
-  
-  // Qwen2 Instruct形式でプロンプト構築
-  const prompt = `<|im_start|>system
-${SYSTEM_PROMPT}${nightPrompt}<|im_end|>
-<|im_start|>user
-${input}<|im_end|>
-<|im_start|>assistant
-`;
+  // 日本語プロンプト構築
+  const nightHint = isNight() ? "夜遅いから厳しく短く言え。" : "";
+  const prompt = `以下のユーザーの相談に対して、論理的に分析して理詰めで追い込んでから、最後に「いいから寝ろ！！」で強制終了させる日本語の応答を130字以内で生成してください。${nightHint}
+
+相談内容: ${input}
+
+応答(130字以内、最後は必ず「いいから寝ろ！！」で終わる):`;
   
   try {
     const result = await generator(prompt, {
-      max_new_tokens: 100,
-      temperature: 0.85,
+      max_new_tokens: 150,
+      temperature: 0.9,
       do_sample: true,
-      top_p: 0.9,
-      repetition_penalty: 1.2,
+      top_p: 0.95,
+      repetition_penalty: 1.3,
+      top_k: 50,
     });
     
     let text = result[0].generated_text;
+    // プロンプト部分を削除
     text = text.replace(prompt, "").trim();
+    
+    // 日本語以外の文字を除去
+    text = text.replace(/[^\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf、。！？\n\s]/g, '');
     
     // 締め句強制付与
     if (!text.includes("いいから寝ろ")) {
       text += "\n\nいいから寝ろ！！";
     } else if (!text.includes("！！")) {
-      // 語気を強化
       text = text.replace(/いいから寝ろ[。！]*/, "いいから寝ろ！！");
     }
     
     // 140字調整（#いいから寝ろ を含めて140字以内）
     // ハッシュタグ分を引く: 140 - 7 = 133字
     if (text.length > 133) {
-      // 締め句を保護して切り詰め
       const ending = "いいから寝ろ！！";
-      const maxLen = 133 - ending.length - 3; // "..." 分
+      const maxLen = 133 - ending.length - 3;
       const mainText = text.replace(/いいから寝ろ[！！。]+$/, "").trim();
       text = mainText.slice(0, maxLen) + "..." + ending;
     }
