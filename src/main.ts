@@ -79,37 +79,37 @@ async function generate(input: string): Promise<string> {
   
   // 英語でAIに本格的な分析をさせる
   const nightHint = isNight() ? " Be more harsh and direct since it's late night." : "";
-  const prompt = `You are a dismissive but logical counselor AI. Analyze this problem logically, point out why worrying at night is counterproductive, then conclude with forcing them to sleep.${nightHint}
+  const prompt = `You are a dismissive but logical counselor AI. Analyze this problem, explain why worrying at night is counterproductive, and conclude with telling them to sleep.${nightHint}
 
 User problem: ${input}
 
-Logical analysis (be brief but insightful, max 50 words):`;
+Analysis (be detailed but concise, around 80-100 words):`;
   
   try {
     const result = await generator(prompt, {
-      max_new_tokens: 80,
-      temperature: 0.9,
+      max_new_tokens: 120,
+      temperature: 0.95,
       do_sample: true,
-      top_p: 0.95,
-      repetition_penalty: 1.3,
+      top_p: 0.9,
+      repetition_penalty: 1.2,
     });
     
     let englishText = result[0].generated_text;
     englishText = englishText.replace(prompt, "").trim();
     
-    // 英語応答を日本語風に翻訳（AIらしい多様性を保持）
-    let japaneseText = translateToJapanese(englishText, input);
+    // 英語を直接日本語に翻訳（パターンマッチングではなく直訳）
+    let japaneseText = await translateEnglishToJapanese(englishText, input);
     
     // 最後に強制終了を追加
     if (!japaneseText.includes("いいから寝ろ")) {
-      japaneseText += "\n\nいいから寝ろ！！";
+      japaneseText += " いいから寝ろ！！";
     }
     
-    // 140字制限（#いいから寝ろ 7文字を含めて140字）
+    // 140字制限
     if (japaneseText.length > 133) {
-      const ending = "\n\nいいから寝ろ！！";
-      const maxLen = 133 - ending.length - 3; // "..." 分
-      const mainText = japaneseText.replace(/\n\nいいから寝ろ！！$/, "");
+      const ending = " いいから寝ろ！！";
+      const maxLen = 133 - ending.length - 3;
+      const mainText = japaneseText.replace(/ いいから寝ろ！！$/, "");
       japaneseText = mainText.slice(0, maxLen) + "..." + ending;
     }
     
@@ -121,40 +121,62 @@ Logical analysis (be brief but insightful, max 50 words):`;
   }
 }
 
-// AI生成英語を日本語風に翻訳する関数
-function translateToJapanese(englishText: string, userInput: string): string {
-  // 基本的な英語→日本語変換パターン
-  let japanese = englishText
-    .toLowerCase()
-    .replace(/you're overthinking/g, "考えすぎだ")
-    .replace(/stop worrying/g, "悩むのをやめろ")
-    .replace(/it won't solve/g, "解決しない")
-    .replace(/at night/g, "夜に")
-    .replace(/sleep/g, "寝る")
-    .replace(/tired/g, "疲れてる")
-    .replace(/tomorrow/g, "明日")
-    .replace(/morning/g, "朝")
-    .replace(/stress/g, "ストレス")
-    .replace(/anxiety/g, "不安")
-    .replace(/problem/g, "問題")
-    .replace(/solution/g, "解決策")
-    .replace(/thinking/g, "考える")
-    .replace(/worry/g, "心配")
-    .replace(/waste of time/g, "時間の無駄")
-    .replace(/pointless/g, "無意味")
-    .replace(/useless/g, "無駄");
+// 英語を日本語に直接翻訳する関数（AIの実際の思考を反映）
+async function translateEnglishToJapanese(englishText: string, userInput: string): Promise<string> {
+  // 基本的な単語置換辞書
+  const dictionary: { [key: string]: string } = {
+    'thinking': '考えること', 'worrying': '心配すること', 'anxiety': '不安',
+    'stress': 'ストレス', 'problem': '問題', 'solution': '解決策',
+    'night': '夜', 'sleep': '睡眠', 'tired': '疲れた', 'brain': '脳',
+    'decision': '判断', 'emotional': '感情的', 'rational': '理性的',
+    'productivity': '生産性', 'focus': '集中', 'morning': '朝',
+    'tomorrow': '明日', 'today': '今日', 'time': '時間',
+    'waste': '無駄', 'pointless': '無意味', 'useless': '役に立たない',
+    'overthinking': '考えすぎ', 'counterproductive': '逆効果',
+    'judgment': '判断力', 'clarity': '明晰さ', 'perspective': '視点'
+  };
   
-  // AIらしい論理的な文章構造を日本語化
-  if (japanese.includes("overthinking") || japanese.includes("考えすぎ")) {
-    return `${userInput.slice(0,12)}について考えすぎだ。夜の思考は冷静じゃない。明日考えろ。`;
-  } else if (japanese.includes("solve") || japanese.includes("解決")) {
-    return `${userInput.slice(0,12)}は夜に解決できない問題だ。疲れた脳で考えても無駄。`;
-  } else if (japanese.includes("stress") || japanese.includes("ストレス")) {
-    return `${userInput.slice(0,12)}でストレス抱えても意味がない。寝不足の方が問題を悪化させる。`;
-  } else {
-    // フォールバック：一般的な論理的応答
-    return `${userInput.slice(0,12)}の件、夜に悩んでも判断力が落ちるだけ。今やれることはない。`;
+  // 英語文章を解析して日本語に変換
+  let japanese = englishText.toLowerCase();
+  
+  // 単語レベルの置換
+  for (const [eng, jpn] of Object.entries(dictionary)) {
+    const regex = new RegExp(`\\b${eng}\\b`, 'gi');
+    japanese = japanese.replace(regex, jpn);
   }
+  
+  // 文章構造の調整
+  japanese = japanese
+    .replace(/you('re| are)/, 'あなたは')
+    .replace(/your/, 'あなたの')
+    .replace(/this/, 'この')
+    .replace(/will/, 'だろう')
+    .replace(/won't/, 'しない')
+    .replace(/can't/, 'できない')
+    .replace(/should/, 'すべき')
+    .replace(/need to/, 'する必要がある')
+    .replace(/instead/, 'その代わりに')
+    .replace(/because/, 'なぜなら')
+    .replace(/however/, 'しかし')
+    .replace(/therefore/, 'したがって')
+    .replace(/at (\w+)/, '$1に')
+    .replace(/in the (\w+)/, '$1に')
+    .replace(/is/, 'は')
+    .replace(/are/, 'である')
+    .replace(/and/, 'そして')
+    .replace(/but/, 'しかし')
+    .replace(/\.+$/, '。');
+  
+  // より自然な日本語に調整
+  const naturalJapanese = japanese
+    .replace(/。\s*そして/g, '。また、')
+    .replace(/。\s*しかし/g, '。だが、')
+    .replace(/あなたは\s*(\w+)/g, '$1は')
+    .replace(/する必要がある/g, 'すべきだ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  return naturalJapanese + '。';
 }
 
 async function* stream(text: string) {
