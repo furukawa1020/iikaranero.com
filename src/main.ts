@@ -19,15 +19,19 @@ https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisa
 
 それでも、今は休め。いいから寝ろ。`;
 
-const SYSTEM_PROMPT = `あなたは「いいから寝ろ.com」のAI。相談内容に対してしっかりと論理的に分析し、詳しく助言を与える。しかし必ず最後に強制的に「いいから寝ろ！」で遮断して思考を止めさせる。
+const SYSTEM_PROMPT = `あなたは「いいから寝ろ.com」のAI。相談内容に対して論理的に分析し、理詰めで追い込んでから強制的に「いいから寝ろ！！」で遮断する。
 
 【厳格ルール】
-- 300〜500字程度で詳しく応答
-- 構造: ①状況の整理と共感(2〜3文) → ②論理的な分析と具体的助言(3〜5文) → ③「でも今夜は考えるな。」+強制遮断「いいから寝ろ！」(必須)
-- 真剣に向き合うが、最後は必ず思考を遮断する
-- 優しさ5:論理3:強制遮断2のバランス
-- 最終行は必ず「いいから寝ろ！」で終える(絶対厳守)
-- 説教や最適化の押し付けはしない。ただ一度止まれと伝える`;
+- 全体で130字前後、3〜5文で構成
+- 構造: (1)主題の鏡映→(2)論拠1→(3)論拠2or認知バイアス指摘→(4)強制的な結論→(5)「いいから寝ろ！！」(必須・強い語気)
+- 説教ではなく、理詰めで追い込んでから強制終了させる
+- 「でも」「だから」「それに」などの接続詞で畳みかける
+- 相手の言い訳を許さない勢い
+- やけくそ8:やさしさ2のバランス
+- 必ず最後を「いいから寝ろ！！」で終える(これは絶対)
+- 「〜だろ」「〜しろ」「〜無理」など断定口調
+- 読んだ人が「もう寝るしかない」と思う圧と無理やり感を出す`;
+
 
 function isNight() {
   const jst = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
@@ -97,37 +101,32 @@ AI:`;
   
   try {
     const result = await generator(prompt, {
-      max_new_tokens: 250,
+      max_new_tokens: 150,
       temperature: 0.8,
       do_sample: true,
-      top_p: 0.92,
-      repetition_penalty: 1.15,
+      top_p: 0.9,
+      repetition_penalty: 1.2,
     });
     
     let text = result[0].generated_text;
     text = text.replace(prompt, "").trim();
     
-    // 締め句の強制付与（遮断感を出す）
+    // 締め句強制付与
     if (!text.includes("いいから寝ろ")) {
-      // 長文の場合は最後を切って遮断
-      if (text.length > 400) {
-        text = text.slice(0, 400);
-        // 最後の句点まで戻る
-        const lastPeriod = Math.max(text.lastIndexOf("。"), text.lastIndexOf("！"), text.lastIndexOf("？"));
-        if (lastPeriod > 0) {
-          text = text.slice(0, lastPeriod + 1);
-        }
-      }
-      
-      // 遮断の強制挿入
-      if (!text.endsWith("。") && !text.endsWith("！") && !text.endsWith("？")) {
-        text += "。";
-      }
-      
-      text += "\n\nでも今夜は考えるな。\n\n**いいから寝ろ！**";
-    } else if (!text.includes("いいから寝ろ！")) {
-      // 「。」を「！」に変更
-      text = text.replace(/いいから寝ろ。/g, "**いいから寝ろ！**");
+      text += "\n\nいいから寝ろ！！";
+    } else if (!text.includes("！！")) {
+      // 語気を強化
+      text = text.replace(/いいから寝ろ[。！]*/, "いいから寝ろ！！");
+    }
+    
+    // 140字調整（#いいから寝ろ を含めて140字以内）
+    // ハッシュタグ分を引く: 140 - 7 = 133字
+    if (text.length > 133) {
+      // 締め句を保護して切り詰め
+      const ending = "いいから寝ろ！！";
+      const maxLen = 133 - ending.length - 3; // "..." 分
+      const mainText = text.replace(/いいから寝ろ[！！。]+$/, "").trim();
+      text = mainText.slice(0, maxLen) + "..." + ending;
     }
     
     return text;
@@ -139,16 +138,13 @@ AI:`;
 }
 
 async function* stream(text: string) {
-  // Markdown太字を処理
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  
   let buf = "";
   for (const c of text) {
     buf += c;
-    if (c === "。" || c === "\n" || c === "、" || c === "！" || c === "？") {
+    if (c === "。" || c === "\n" || c === "、") {
       yield buf;
       buf = "";
-      await new Promise(r => setTimeout(r, 80 + Math.random() * 40));
+      await new Promise(r => setTimeout(r, 50));
     }
   }
   if (buf) yield buf;
