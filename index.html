@@ -109,6 +109,20 @@
       font-style: italic;
     }
     
+    #ai-status {
+      display: none;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    
+    strong {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 1.1em;
+    }
+    
     #input-form {
       display: flex;
       gap: 0.5rem;
@@ -221,11 +235,23 @@
 <body>
   <header>
     <h1>いいから寝ろ.com</h1>
-    <p class="subtitle">説得ではなく遮断</p>
+    <p class="subtitle">ブラウザで動く強制終了AI</p>
     <span class="badge" id="night-badge" style="display: none;">🌙 夜間モード</span>
+    <div id="ai-status" style="font-size: 0.85rem; color: #888; margin-top: 0.5rem;"></div>
   </header>
   
   <main>
+    <div id="ai-status" style="
+      padding: 0.8rem;
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-align: center;
+      display: none;
+    "></div>
+    
     <div id="response-area" role="log" aria-live="polite" aria-atomic="false"></div>
     
     <form id="input-form">
