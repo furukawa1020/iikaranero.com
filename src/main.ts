@@ -1,5 +1,5 @@
 ﻿// いいから寝ろ.com - 真のブラウザベースニューラルネット生成AI
-// Transformers.js + Qwen2.5-0.5B (GPU不要)
+// Transformers.js + Phi-3-mini (GPU不要, 軽量2.7GB→INT8で約700MB)
 
 import { pipeline, env } from "@xenova/transformers";
 
@@ -42,12 +42,12 @@ async function initModel() {
   if (generator || isLoading) return;
   
   isLoading = true;
-  updateStatus(" AIモデルを初回ロード中... (15-30秒かかります)");
+  updateStatus("🧠 AIモデルを初回ロード中... (30-60秒かかります)");
   
   try {
     generator = await pipeline(
       "text-generation",
-      "Xenova/Qwen2.5-0.5B-Instruct",
+      "Xenova/Phi-3-mini-4k-instruct",
       { 
         quantized: true,
         progress_callback: (progress: any) => {
@@ -93,16 +93,20 @@ async function generate(input: string): Promise<string> {
   
   const nightPrompt = isNight() ? "\n夜間(23-05時JST): さらに短く、語気強め" : "";
   
-  const prompt = `${SYSTEM_PROMPT}${nightPrompt}
-
-ユーザー: ${input}
-
-AI:`;
+  // Phi-3 Instruct形式でプロンプト構築
+  const prompt = `<|system|>
+${SYSTEM_PROMPT}${nightPrompt}
+<|end|>
+<|user|>
+${input}
+<|end|>
+<|assistant|>
+`;
   
   try {
     const result = await generator(prompt, {
-      max_new_tokens: 150,
-      temperature: 0.8,
+      max_new_tokens: 120,
+      temperature: 0.85,
       do_sample: true,
       top_p: 0.9,
       repetition_penalty: 1.2,

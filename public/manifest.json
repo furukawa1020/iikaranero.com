@@ -1,27 +1,14 @@
 {
   "name": "いいから寝ろ.com",
   "short_name": "いいから寝ろ",
-  "description": "説得ではなく遮断。夜の思考ループを強制終了。",
+  "description": "論理的に追い込んでから強制終了。夜の思考ループを遮断。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
+  "icons": [],
   "categories": ["health", "lifestyle", "utilities"],
   "lang": "ja-JP",
   "dir": "ltr"
