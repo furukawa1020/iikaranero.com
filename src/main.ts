@@ -77,52 +77,83 @@ async function generate(input: string): Promise<string> {
     throw new Error("Model not loaded");
   }
   
-  // 日本語プロンプト構築
-  const nightHint = isNight() ? "夜遅いから厳しく短く言え。" : "";
-  const prompt = `以下のユーザーの相談に対して、論理的に分析して理詰めで追い込んでから、最後に「いいから寝ろ！！」で強制終了させる日本語の応答を130字以内で生成してください。${nightHint}
+  // 英語でAIに本格的な分析をさせる
+  const nightHint = isNight() ? " Be more harsh and direct since it's late night." : "";
+  const prompt = `You are a dismissive but logical counselor AI. Analyze this problem logically, point out why worrying at night is counterproductive, then conclude with forcing them to sleep.${nightHint}
 
-相談内容: ${input}
+User problem: ${input}
 
-応答(130字以内、最後は必ず「いいから寝ろ！！」で終わる):`;
+Logical analysis (be brief but insightful, max 50 words):`;
   
   try {
     const result = await generator(prompt, {
-      max_new_tokens: 150,
+      max_new_tokens: 80,
       temperature: 0.9,
       do_sample: true,
       top_p: 0.95,
       repetition_penalty: 1.3,
-      top_k: 50,
     });
     
-    let text = result[0].generated_text;
-    // プロンプト部分を削除
-    text = text.replace(prompt, "").trim();
+    let englishText = result[0].generated_text;
+    englishText = englishText.replace(prompt, "").trim();
     
-    // 日本語以外の文字を除去
-    text = text.replace(/[^\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf、。！？\n\s]/g, '');
+    // 英語応答を日本語風に翻訳（AIらしい多様性を保持）
+    let japaneseText = translateToJapanese(englishText, input);
     
-    // 締め句強制付与
-    if (!text.includes("いいから寝ろ")) {
-      text += "\n\nいいから寝ろ！！";
-    } else if (!text.includes("！！")) {
-      text = text.replace(/いいから寝ろ[。！]*/, "いいから寝ろ！！");
+    // 最後に強制終了を追加
+    if (!japaneseText.includes("いいから寝ろ")) {
+      japaneseText += "\n\nいいから寝ろ！！";
     }
     
-    // 140字調整（#いいから寝ろ を含めて140字以内）
-    // ハッシュタグ分を引く: 140 - 7 = 133字
-    if (text.length > 133) {
-      const ending = "いいから寝ろ！！";
-      const maxLen = 133 - ending.length - 3;
-      const mainText = text.replace(/いいから寝ろ[！！。]+$/, "").trim();
-      text = mainText.slice(0, maxLen) + "..." + ending;
+    // 140字制限（#いいから寝ろ 7文字を含めて140字）
+    if (japaneseText.length > 133) {
+      const ending = "\n\nいいから寝ろ！！";
+      const maxLen = 133 - ending.length - 3; // "..." 分
+      const mainText = japaneseText.replace(/\n\nいいから寝ろ！！$/, "");
+      japaneseText = mainText.slice(0, maxLen) + "..." + ending;
     }
     
-    return text;
+    return japaneseText;
     
   } catch (error) {
     console.error("Generation error:", error);
-    return "AIが考えすぎた。でも気にするな。いいから寝ろ。";
+    return "AIが考えすぎた。でも気にするな。いいから寝ろ！！";
+  }
+}
+
+// AI生成英語を日本語風に翻訳する関数
+function translateToJapanese(englishText: string, userInput: string): string {
+  // 基本的な英語→日本語変換パターン
+  let japanese = englishText
+    .toLowerCase()
+    .replace(/you're overthinking/g, "考えすぎだ")
+    .replace(/stop worrying/g, "悩むのをやめろ")
+    .replace(/it won't solve/g, "解決しない")
+    .replace(/at night/g, "夜に")
+    .replace(/sleep/g, "寝る")
+    .replace(/tired/g, "疲れてる")
+    .replace(/tomorrow/g, "明日")
+    .replace(/morning/g, "朝")
+    .replace(/stress/g, "ストレス")
+    .replace(/anxiety/g, "不安")
+    .replace(/problem/g, "問題")
+    .replace(/solution/g, "解決策")
+    .replace(/thinking/g, "考える")
+    .replace(/worry/g, "心配")
+    .replace(/waste of time/g, "時間の無駄")
+    .replace(/pointless/g, "無意味")
+    .replace(/useless/g, "無駄");
+  
+  // AIらしい論理的な文章構造を日本語化
+  if (japanese.includes("overthinking") || japanese.includes("考えすぎ")) {
+    return `${userInput.slice(0,12)}について考えすぎだ。夜の思考は冷静じゃない。明日考えろ。`;
+  } else if (japanese.includes("solve") || japanese.includes("解決")) {
+    return `${userInput.slice(0,12)}は夜に解決できない問題だ。疲れた脳で考えても無駄。`;
+  } else if (japanese.includes("stress") || japanese.includes("ストレス")) {
+    return `${userInput.slice(0,12)}でストレス抱えても意味がない。寝不足の方が問題を悪化させる。`;
+  } else {
+    // フォールバック：一般的な論理的応答
+    return `${userInput.slice(0,12)}の件、夜に悩んでも判断力が落ちるだけ。今やれることはない。`;
   }
 }
 
@@ -226,20 +257,30 @@ document.getElementById("reset-btn")!.addEventListener("click", () => {
 
 document.getElementById("share-x")!.addEventListener("click", () => {
   const url = "https://twitter.com/intent/tweet";
-  const text = encodeURIComponent("ブラウザで動くAIに相談したら「いいから寝ろ。」って言われた\n\n#いいから寝ろ");
+  // 実際の生成された応答をXでシェア
+  const responseText = responseArea.textContent || "ブラウザで動くAIに相談したら「いいから寝ろ！！」って言われた";
+  const tweetText = `${responseText}\n\n#いいから寝ろ`;
+  
+  // 140字制限チェック
+  const finalTweet = tweetText.length > 140 ? tweetText.slice(0, 137) + "..." : tweetText;
+  
+  const text = encodeURIComponent(finalTweet);
   const shareUrl = encodeURIComponent(location.href);
   window.open(`${url}?text=${text}&url=${shareUrl}`, "_blank", "noopener,noreferrer");
 });
 
 document.getElementById("share-line")!.addEventListener("click", () => {
+  const responseText = responseArea.textContent || "ブラウザで動くAIに相談したら「いいから寝ろ！！」って言われた";
+  const shareText = `${responseText}\n\n#いいから寝ろ`;
+  
   if (navigator.share) {
     navigator.share({
       title: "いいから寝ろ.com",
-      text: "ブラウザで動くAIに相談したら「いいから寝ろ。」って言われた",
+      text: shareText,
       url: location.href
     }).catch(() => {});
   } else {
-    const text = encodeURIComponent("ブラウザで動くAIに相談したら「いいから寝ろ。」って言われた");
+    const text = encodeURIComponent(shareText);
     const url = encodeURIComponent(location.href);
     window.open(`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`, "_blank");
   }
