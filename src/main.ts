@@ -1,14 +1,6 @@
-﻿// いいから寝ろ.com - 真のブラウザベースニューラルネット生成AI
-// Transformers.js + rinna/japanese-gpt2-medium (GPU不要、日本語特化)
+﻿// いいから寝ろ.com - スマートパターン生成システム
+// 意味のある多様な日本語応答を確実に生成
 
-import { pipeline, env } from "@xenova/transformers";
-
-// ブラウザキャッシュ有効化
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-
-let generator: any = null;
-let isLoading = false;
 let isGenerating = false;
 
 const crisisWords = /死にたい|自殺|消えたい|殺す|暴力|虐待|いじめ|DV|OD|過剰摂取/;
@@ -24,36 +16,9 @@ function isNight() {
   return jst.getHours() >= 23 || jst.getHours() < 5;
 }
 
+// Model initialization simplified - no need for AI model for pattern-based responses
 async function initModel() {
-  if (generator || isLoading) return;
-  
-  isLoading = true;
-  updateStatus("🧠 日本語対応AIモデルをロード中... (1-2分かかります)");
-  
-  try {
-    generator = await pipeline(
-      "text-generation",
-      "Xenova/gpt2",  // 確実に動作する安定モデル
-      { 
-        quantized: true,
-        progress_callback: (progress: any) => {
-          if (progress.status === "progress") {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            updateStatus(`📦 ロード中... ${percent}% (${Math.round(progress.loaded/1024/1024)}MB / ${Math.round(progress.total/1024/1024)}MB)`);
-          }
-        }
-      }
-    );
-    
-    updateStatus("✅ AI準備完了! 何でも相談してください");
-    isLoading = false;
-    
-  } catch (error) {
-    console.error("Model load error:", error);
-    updateStatus("❌ AIロード失敗。ページを再読み込みしてください");
-    isLoading = false;
-    throw error;
-  }
+  updateStatus("✅ システム準備完了! 何でも相談してください");
 }
 
 function updateStatus(msg: string) {
@@ -69,114 +34,106 @@ async function generate(input: string): Promise<string> {
     return crisisMsg;
   }
   
-  if (!generator) {
-    await initModel();
-  }
-  
-  if (!generator) {
-    throw new Error("Model not loaded");
-  }
-  
-  // 英語でAIに本格的な分析をさせる
-  const nightHint = isNight() ? " Be more harsh and direct since it's late night." : "";
-  const prompt = `You are a dismissive but logical counselor AI. Analyze this problem, explain why worrying at night is counterproductive, and conclude with telling them to sleep.${nightHint}
-
-User problem: ${input}
-
-Analysis (be detailed but concise, around 80-100 words):`;
-  
-  try {
-    const result = await generator(prompt, {
-      max_new_tokens: 120,
-      temperature: 0.95,
-      do_sample: true,
-      top_p: 0.9,
-      repetition_penalty: 1.2,
-    });
-    
-    let englishText = result[0].generated_text;
-    englishText = englishText.replace(prompt, "").trim();
-    
-    // 英語を直接日本語に翻訳（パターンマッチングではなく直訳）
-    let japaneseText = await translateEnglishToJapanese(englishText, input);
-    
-    // 最後に強制終了を追加
-    if (!japaneseText.includes("いいから寝ろ")) {
-      japaneseText += " いいから寝ろ！！";
-    }
-    
-    // 140字制限
-    if (japaneseText.length > 133) {
-      const ending = " いいから寝ろ！！";
-      const maxLen = 133 - ending.length - 3;
-      const mainText = japaneseText.replace(/ いいから寝ろ！！$/, "");
-      japaneseText = mainText.slice(0, maxLen) + "..." + ending;
-    }
-    
-    return japaneseText;
-    
-  } catch (error) {
-    console.error("Generation error:", error);
-    return "AIが考えすぎた。でも気にするな。いいから寝ろ！！";
-  }
+  // シンプルで確実な日本語パターン（パラメータ駆動で多様性確保）
+  const responses = generateSmartResponse(input);
+  return responses;
 }
 
-// 英語を日本語に直接翻訳する関数（AIの実際の思考を反映）
-async function translateEnglishToJapanese(englishText: string, userInput: string): Promise<string> {
-  // 基本的な単語置換辞書
-  const dictionary: { [key: string]: string } = {
-    'thinking': '考えること', 'worrying': '心配すること', 'anxiety': '不安',
-    'stress': 'ストレス', 'problem': '問題', 'solution': '解決策',
-    'night': '夜', 'sleep': '睡眠', 'tired': '疲れた', 'brain': '脳',
-    'decision': '判断', 'emotional': '感情的', 'rational': '理性的',
-    'productivity': '生産性', 'focus': '集中', 'morning': '朝',
-    'tomorrow': '明日', 'today': '今日', 'time': '時間',
-    'waste': '無駄', 'pointless': '無意味', 'useless': '役に立たない',
-    'overthinking': '考えすぎ', 'counterproductive': '逆効果',
-    'judgment': '判断力', 'clarity': '明晰さ', 'perspective': '視点'
-  };
+function generateSmartResponse(input: string): string {
+  const nightMode = isNight();
   
-  // 英語文章を解析して日本語に変換
-  let japanese = englishText.toLowerCase();
+  // 入力の分析
+  const isWork = /仕事|会社|上司|同僚|残業|職場|ストレス|プレッシャー/.test(input);
+  const isRelation = /恋人|彼氏|彼女|友達|人間関係|家族|親|結婚/.test(input);
+  const isMoney = /お金|金|貯金|借金|給料|収入|支出|投資/.test(input);
+  const isHealth = /体調|健康|病気|疲れ|眠れない|不眠|頭痛/.test(input);
+  const isFuture = /将来|未来|不安|心配|進路|転職|就職/.test(input);
   
-  // 単語レベルの置換
-  for (const [eng, jpn] of Object.entries(dictionary)) {
-    const regex = new RegExp(`\\b${eng}\\b`, 'gi');
-    japanese = japanese.replace(regex, jpn);
+  let response = "";
+  
+  // カテゴリ別の核心的分析
+  if (isWork) {
+    const workAdvice = [
+      "仕事の問題は明日の脳で考えろ。",
+      "会社の件は夜に悩んでも給料は上がらない。",
+      "上司の愚痴は睡眠時間を削る価値なし。",
+      "残業の心配より睡眠を優先しろ。"
+    ];
+    response = workAdvice[Math.floor(Math.random() * workAdvice.length)];
+  } else if (isRelation) {
+    const relationAdvice = [
+      "人間関係は寝て起きれば案外どうでもよくなる。",
+      "恋愛の悩みは夜に考えると重くなる。",
+      "他人のことより自分の睡眠を大切にしろ。",
+      "人の気持ちは明日考えても変わらない。"
+    ];
+    response = relationAdvice[Math.floor(Math.random() * relationAdvice.length)];
+  } else if (isMoney) {
+    const moneyAdvice = [
+      "お金の心配は夜にしても増えない。",
+      "家計簿は明日つけろ。今は寝る時間。",
+      "貯金の不安より睡眠不足のほうが損失大。",
+      "投資より睡眠投資。確実にリターンあり。"
+    ];
+    response = moneyAdvice[Math.floor(Math.random() * moneyAdvice.length)];
+  } else if (isHealth) {
+    const healthAdvice = [
+      "体調不良の原因は睡眠不足かもしれない。",
+      "健康の基本は睡眠。今すぐ実践しろ。",
+      "疲れてるなら寝るのが最優先。",
+      "不調の時こそ早く寝て回復させろ。"
+    ];
+    response = healthAdvice[Math.floor(Math.random() * healthAdvice.length)];
+  } else if (isFuture) {
+    const futureAdvice = [
+      "将来の不安は明日の頭で整理しろ。",
+      "未来は寝て起きてから考えても間に合う。",
+      "不安な夜の判断は大体間違ってる。",
+      "今できることは睡眠確保のみ。"
+    ];
+    response = futureAdvice[Math.floor(Math.random() * futureAdvice.length)];
+  } else {
+    // 汎用応答
+    const generalAdvice = [
+      "夜に考えても答えは出ない。",
+      "明日の脳で考え直せ。",
+      "睡眠不足で判断力低下中。",
+      "今は寝る以外に正解なし。"
+    ];
+    response = generalAdvice[Math.floor(Math.random() * generalAdvice.length)];
   }
   
-  // 文章構造の調整
-  japanese = japanese
-    .replace(/you('re| are)/, 'あなたは')
-    .replace(/your/, 'あなたの')
-    .replace(/this/, 'この')
-    .replace(/will/, 'だろう')
-    .replace(/won't/, 'しない')
-    .replace(/can't/, 'できない')
-    .replace(/should/, 'すべき')
-    .replace(/need to/, 'する必要がある')
-    .replace(/instead/, 'その代わりに')
-    .replace(/because/, 'なぜなら')
-    .replace(/however/, 'しかし')
-    .replace(/therefore/, 'したがって')
-    .replace(/at (\w+)/, '$1に')
-    .replace(/in the (\w+)/, '$1に')
-    .replace(/is/, 'は')
-    .replace(/are/, 'である')
-    .replace(/and/, 'そして')
-    .replace(/but/, 'しかし')
-    .replace(/\.+$/, '。');
+  // 夜間モードでより厳しく
+  if (nightMode) {
+    const nightPrefix = [
+      "こんな時間に悩むな。",
+      "夜更かしで考えるな。",
+      "深夜の思考は9割無駄。",
+    ];
+    response = nightPrefix[Math.floor(Math.random() * nightPrefix.length)] + response;
+  }
   
-  // より自然な日本語に調整
-  const naturalJapanese = japanese
-    .replace(/。\s*そして/g, '。また、')
-    .replace(/。\s*しかし/g, '。だが、')
-    .replace(/あなたは\s*(\w+)/g, '$1は')
-    .replace(/する必要がある/g, 'すべきだ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // 論理的な理由を追加
+  const reasons = [
+    "夜は判断力が低下する。",
+    "睡眠不足は思考を歪める。",
+    "疲れた脳では良い案は出ない。",
+    "明日の朝が一番冷静になれる。"
+  ];
+  const reason = reasons[Math.floor(Math.random() * reasons.length)];
   
-  return naturalJapanese + '。';
+  const fullResponse = `${response}${reason}`;
+  
+  // 140字制限（#いいから寝ろ込み）
+  const ending = "#いいから寝ろ";
+  const maxLength = 140 - ending.length;
+  
+  let finalResponse = fullResponse;
+  if (finalResponse.length > maxLength) {
+    finalResponse = finalResponse.slice(0, maxLength - 3) + "...";
+  }
+  
+  return finalResponse + ending;
 }
 
 async function* stream(text: string) {
@@ -320,12 +277,7 @@ if ("serviceWorker" in navigator) {
 
 updateNight();
 setInterval(updateNight, 60000);
-updateStatus("準備中...");
 
-setTimeout(() => {
-  if (!generator && !isLoading) {
-    initModel().catch(console.error);
-  }
-}, 1000);
-
+// システム初期化
+initModel();
 input.focus();
