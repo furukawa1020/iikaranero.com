@@ -1,10 +1,10 @@
 // Netlify Function: AI生成エンドポイント
-// Hugging Face APIをサーバー側で呼び出してCORS問題を回避
+// Hugging Face Router APIをサーバー側で呼び出してCORS問題を回避
 
 import { Handler } from '@netlify/functions';
 
-const HF_MODEL = "microsoft/Phi-3-mini-4k-instruct";
-const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+const HF_MODEL = "Qwen/Qwen2.5-7B-Instruct";
+const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}/v1/chat/completions`;
 
 export const handler: Handler = async (event) => {
   // CORSヘッダー
@@ -57,12 +57,9 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // プロンプト作成
-    const fullPrompt = `${systemPrompt}\n\nユーザー: ${input}\n\nアシスタント:`;
+    console.log('🔄 Calling Hugging Face Router API...');
 
-    console.log('🔄 Calling Hugging Face API...');
-
-    // Hugging Face APIを呼び出し
+    // Hugging Face Router API (OpenAI互換)を呼び出し
     const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
@@ -70,18 +67,20 @@ export const handler: Handler = async (event) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: fullPrompt,
-        parameters: {
-          max_new_tokens: 100,
-          temperature: 0.8,
-          top_p: 0.9,
-          do_sample: true,
-          return_full_text: false,
-        },
-        options: {
-          wait_for_model: true,
-          use_cache: false,
-        },
+        model: HF_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: input
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.8,
+        top_p: 0.9,
       }),
     });
 
@@ -100,17 +99,13 @@ export const handler: Handler = async (event) => {
     }
 
     const data = await response.json();
-    console.log('✅ HF API Success');
+    console.log('✅ HF Router API Success');
 
-    // レスポンスからテキストを抽出
+    // OpenAI互換フォーマットからテキストを抽出
     let generatedText = '';
     
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      generatedText = data[0].generated_text;
-    } else if (data.generated_text) {
-      generatedText = data.generated_text;
-    } else if (typeof data === 'string') {
-      generatedText = data;
+    if (data.choices && data.choices[0]?.message?.content) {
+      generatedText = data.choices[0].message.content;
     } else {
       console.error('❌ Unexpected format:', data);
       return {
