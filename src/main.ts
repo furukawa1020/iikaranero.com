@@ -33,18 +33,26 @@ function updateStatus(msg: string) {
 }
 
 async function generate(input: string): Promise<string> {
+  console.log("🎯 generate() called with input:", input);
+  
   if (crisisWords.test(input.replace(/\s+/g, ""))) {
+    console.log("⚠️ Crisis words detected");
     return crisisMsg;
   }
+  
+  console.log("🚀 Attempting LLM generation...");
   
   try {
     // LLMで本物のAI生成
     const aiResponse = await generateWithLLM(input);
+    console.log("✅ LLM Success:", aiResponse);
     return aiResponse;
   } catch (error) {
-    console.error("LLM Error:", error);
+    console.error("❌ LLM Error - Falling back to pattern:", error);
     // フォールバック: パターンベース
-    return generateFallbackResponse(input);
+    const fallback = generateFallbackResponse(input);
+    console.log("🔄 Fallback response:", fallback);
+    return fallback;
   }
 }
 
