@@ -11,8 +11,8 @@ https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisa
 
 それでも、今は休め。いいから寝ろ。`;
 
-// Hugging Face Inference API設定
-const HF_API_URL = "https://api-inference.huggingface.co/models/rinna/japanese-gpt-neox-3.6b-instruction-sft";
+// Hugging Face Inference API設定（より軽量なモデル）
+const HF_API_URL = "https://api-inference.huggingface.co/models/cyberagent/open-calm-small";
 const USE_FREE_API = true; // 無料APIを使用（認証なし、制限あり）
 
 function isNight() {
@@ -21,7 +21,7 @@ function isNight() {
 }
 
 async function initModel() {
-  updateStatus("✅ AI準備完了! 何でも相談してください（LLM搭載）");
+  updateStatus("✅ AI準備完了! 何でも相談してください");
 }
 
 function updateStatus(msg: string) {
@@ -51,22 +51,11 @@ async function generate(input: string): Promise<string> {
 async function generateWithLLM(input: string): Promise<string> {
   const nightMode = isNight();
   
-  // システムプロンプト
-  const systemPrompt = `あなたは「いいから寝ろ.com」のAIです。
-相談内容を聞いて、論理的かつやや投げやりに「今は寝ろ」と説得してください。
+  // よりシンプルなプロンプト（日本語モデル用）
+  const prompt = `相談: ${input}\n\n回答: 夜に悩んでも`;
 
-【ルール】
-- 50-80文字程度で簡潔に
-- 夜に悩むことの無意味さを論理的に指摘
-- 最後は必ず「いいから寝ろ」で終える
-- 説教臭くならず、理性的だが冷たい口調${nightMode ? '\n- 夜間なのでより厳しく短く' : ''}`;
-
-  const prompt = `${systemPrompt}
-
-ユーザーの相談: ${input}
-
-あなたの応答:`;
-
+  console.log("🔄 LLM API呼び出し中...");
+  
   const response = await fetch(HF_API_URL, {
     method: "POST",
     headers: {
@@ -75,47 +64,69 @@ async function generateWithLLM(input: string): Promise<string> {
     body: JSON.stringify({
       inputs: prompt,
       parameters: {
-        max_new_tokens: 100,
-        temperature: 0.8,
+        max_new_tokens: 60,
+        temperature: 0.7,
         top_p: 0.9,
-        repetition_penalty: 1.2,
         do_sample: true,
+        return_full_text: false
+      },
+      options: {
+        wait_for_model: true,
+        use_cache: false
       }
     })
   });
 
+  console.log("📡 API Response Status:", response.status);
+
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`);
+    const errorText = await response.text();
+    console.error("❌ API Error:", response.status, errorText);
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log("📦 API Response Data:", data);
+  
   let generatedText = "";
   
   if (Array.isArray(data) && data[0]?.generated_text) {
     generatedText = data[0].generated_text;
   } else if (data.generated_text) {
     generatedText = data.generated_text;
+  } else if (Array.isArray(data) && data.length > 0) {
+    generatedText = data[0];
   } else {
+    console.error("❌ Unexpected format:", data);
     throw new Error("Unexpected API response format");
   }
+
+  console.log("✅ Generated Text:", generatedText);
 
   // プロンプトを除去
   generatedText = generatedText.replace(prompt, "").trim();
   
+  // 「夜に悩んでも」から始まる場合はそのまま使用
+  if (!generatedText.startsWith("夜に悩んでも")) {
+    generatedText = "夜に悩んでも" + generatedText;
+  }
+  
   // 「いいから寝ろ」で終わるように調整
-  if (!generatedText.includes("いいから寝ろ") && !generatedText.includes("寝ろ")) {
-    generatedText += "いいから寝ろ";
+  if (!generatedText.includes("寝ろ")) {
+    generatedText += "。いいから寝ろ";
+  } else if (!generatedText.includes("いいから寝ろ")) {
+    generatedText += "！！";
   }
   
   // 140字制限
-  const ending = "#いいから寝ろ";
+  const ending = " #いいから寝ろ";
   const maxLength = 140 - ending.length;
   
   if (generatedText.length > maxLength) {
     generatedText = generatedText.slice(0, maxLength - 3) + "...";
   }
   
-  // ハッシュタグがなければ追加
+  // ハッシュタグ追加
   if (!generatedText.includes("#いいから寝ろ")) {
     generatedText += ending;
   }
