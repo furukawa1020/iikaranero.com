@@ -11,9 +11,16 @@ https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisa
 
 それでも、今は休め。いいから寝ろ。`;
 
-// Hugging Face Router API設定（OpenAI互換・高品質）
-const HF_ROUTER_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions";
+// Hugging Face Inference API設定（より確実なエンドポイント）
+// 標準のInference APIを使用（chat completionsではなくtext-generation）
+const HF_MODEL = "microsoft/Phi-3-mini-4k-instruct";
+const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 const HF_TOKEN = (import.meta as any).env?.VITE_HF_TOKEN || ""; // .envファイルから読み込み
+
+// デバッグ: トークンが読み込まれているか確認
+console.log("🔑 HF_TOKEN loaded:", HF_TOKEN ? `${HF_TOKEN.slice(0, 10)}...` : "NOT FOUND");
+console.log("🌐 HF_API_URL:", HF_API_URL);
+console.log("🤖 Model:", HF_MODEL);
 
 function isNight() {
   const jst = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
@@ -74,29 +81,30 @@ async function generateWithLLM(input: string): Promise<string> {
 - 必ず「いいから寝ろ」で終える
 - 説教臭くならず、理性的だが冷たい口調${nightMode ? '\n- 夜間なのでより厳しく短く応答' : ''}`;
 
-  console.log("🔄 LLM API呼び出し中... (Qwen2.5-72B)");
+  console.log("🔄 LLM API呼び出し中...", HF_MODEL);
   
-  const response = await fetch(HF_ROUTER_URL, {
+  // シンプルなテキスト生成プロンプト
+  const fullPrompt = `${systemPrompt}\n\nユーザー: ${input}\n\nアシスタント:`;
+  
+  const response = await fetch(HF_API_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${HF_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "Qwen/Qwen2.5-72B-Instruct",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: input
-        }
-      ],
-      max_tokens: 100,
-      temperature: 0.8,
-      top_p: 0.9
+      inputs: fullPrompt,
+      parameters: {
+        max_new_tokens: 100,
+        temperature: 0.8,
+        top_p: 0.9,
+        do_sample: true,
+        return_full_text: false
+      },
+      options: {
+        wait_for_model: true,
+        use_cache: false
+      }
     })
   });
 
@@ -113,15 +121,26 @@ async function generateWithLLM(input: string): Promise<string> {
   
   let generatedText = "";
   
-  // OpenAI互換フォーマットからテキスト抽出
-  if (data.choices && data.choices[0]?.message?.content) {
-    generatedText = data.choices[0].message.content.trim();
+  // Inference APIの標準フォーマットからテキスト抽出
+  if (Array.isArray(data) && data[0]?.generated_text) {
+    generatedText = data[0].generated_text.trim();
+  } else if (data.generated_text) {
+    generatedText = data.generated_text.trim();
+  } else if (typeof data === 'string') {
+    generatedText = data.trim();
   } else {
     console.error("❌ Unexpected format:", data);
     throw new Error("Unexpected API response format");
   }
 
-  console.log("✅ Generated Text:", generatedText);
+  console.log("✅ Generated Text (raw):", generatedText);
+  
+  // プロンプト部分を削除
+  if (generatedText.includes("アシスタント:")) {
+    generatedText = generatedText.split("アシスタント:").pop()?.trim() || generatedText;
+  }
+  
+  console.log("✅ Generated Text (cleaned):", generatedText);
   
   // 「いいから寝ろ」で終わるように調整
   if (!generatedText.includes("いいから寝ろ")) {
