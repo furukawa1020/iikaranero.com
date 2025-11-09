@@ -1,4 +1,4 @@
-// Service Worker - オフライン対応
+// Service Worker - オフライン対応 & プッシュ通知
 const CACHE_NAME = 'iikarasnero-v1';
 const OFFLINE_RESPONSE = 'ネットが寝てる。いいから寝ろ。';
 
@@ -34,6 +34,40 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+// プッシュ通知受信
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'いいから寝ろ';
+  const options = {
+    body: data.body || 'こんな時間まで起きてるな。いいから寝ろ。',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 100, 200],
+    tag: 'sleep-reminder',
+    requireInteraction: true,
+    actions: [
+      { action: 'sleep', title: '寝る' },
+      { action: 'ignore', title: '後で' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// 通知クリック
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  if (event.action === 'sleep') {
+    // 「寝る」を押したらアプリを開く
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  }
 });
 
 // フェッチ

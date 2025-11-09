@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# サイトマップ
+Sitemap: https://iikaranaro.com/sitemap.xml
+
+# クロール優先度
+Crawl-delay: 0
+
+# 重要ページを強調
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 0
