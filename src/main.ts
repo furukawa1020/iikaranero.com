@@ -1,5 +1,5 @@
-﻿// いいから寝ろ.com - スマートパターン生成システム
-// 意味のある多様な日本語応答を確実に生成
+﻿// いいから寝ろ.com - Hugging Face LLM搭載
+// GPU不要・高品質日本語生成AI
 
 let isGenerating = false;
 
@@ -11,14 +11,17 @@ https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hukushi_kaigo/seikatsuhogo/jisa
 
 それでも、今は休め。いいから寝ろ。`;
 
+// Hugging Face Inference API設定
+const HF_API_URL = "https://api-inference.huggingface.co/models/rinna/japanese-gpt-neox-3.6b-instruction-sft";
+const USE_FREE_API = true; // 無料APIを使用（認証なし、制限あり）
+
 function isNight() {
   const jst = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
   return jst.getHours() >= 23 || jst.getHours() < 5;
 }
 
-// Model initialization simplified - no need for AI model for pattern-based responses
 async function initModel() {
-  updateStatus("✅ システム準備完了! 何でも相談してください");
+  updateStatus("✅ AI準備完了! 何でも相談してください（LLM搭載）");
 }
 
 function updateStatus(msg: string) {
@@ -34,106 +37,113 @@ async function generate(input: string): Promise<string> {
     return crisisMsg;
   }
   
-  // シンプルで確実な日本語パターン（パラメータ駆動で多様性確保）
-  const responses = generateSmartResponse(input);
-  return responses;
+  try {
+    // LLMで本物のAI生成
+    const aiResponse = await generateWithLLM(input);
+    return aiResponse;
+  } catch (error) {
+    console.error("LLM Error:", error);
+    // フォールバック: パターンベース
+    return generateFallbackResponse(input);
+  }
 }
 
-function generateSmartResponse(input: string): string {
+async function generateWithLLM(input: string): Promise<string> {
   const nightMode = isNight();
   
-  // 入力の分析
-  const isWork = /仕事|会社|上司|同僚|残業|職場|ストレス|プレッシャー/.test(input);
-  const isRelation = /恋人|彼氏|彼女|友達|人間関係|家族|親|結婚/.test(input);
-  const isMoney = /お金|金|貯金|借金|給料|収入|支出|投資/.test(input);
-  const isHealth = /体調|健康|病気|疲れ|眠れない|不眠|頭痛/.test(input);
-  const isFuture = /将来|未来|不安|心配|進路|転職|就職/.test(input);
+  // システムプロンプト
+  const systemPrompt = `あなたは「いいから寝ろ.com」のAIです。
+相談内容を聞いて、論理的かつやや投げやりに「今は寝ろ」と説得してください。
+
+【ルール】
+- 50-80文字程度で簡潔に
+- 夜に悩むことの無意味さを論理的に指摘
+- 最後は必ず「いいから寝ろ」で終える
+- 説教臭くならず、理性的だが冷たい口調${nightMode ? '\n- 夜間なのでより厳しく短く' : ''}`;
+
+  const prompt = `${systemPrompt}
+
+ユーザーの相談: ${input}
+
+あなたの応答:`;
+
+  const response = await fetch(HF_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 100,
+        temperature: 0.8,
+        top_p: 0.9,
+        repetition_penalty: 1.2,
+        do_sample: true,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  let generatedText = "";
   
-  let response = "";
-  
-  // カテゴリ別の核心的分析
-  if (isWork) {
-    const workAdvice = [
-      "仕事の問題は明日の脳で考えろ。",
-      "会社の件は夜に悩んでも給料は上がらない。",
-      "上司の愚痴は睡眠時間を削る価値なし。",
-      "残業の心配より睡眠を優先しろ。"
-    ];
-    response = workAdvice[Math.floor(Math.random() * workAdvice.length)];
-  } else if (isRelation) {
-    const relationAdvice = [
-      "人間関係は寝て起きれば案外どうでもよくなる。",
-      "恋愛の悩みは夜に考えると重くなる。",
-      "他人のことより自分の睡眠を大切にしろ。",
-      "人の気持ちは明日考えても変わらない。"
-    ];
-    response = relationAdvice[Math.floor(Math.random() * relationAdvice.length)];
-  } else if (isMoney) {
-    const moneyAdvice = [
-      "お金の心配は夜にしても増えない。",
-      "家計簿は明日つけろ。今は寝る時間。",
-      "貯金の不安より睡眠不足のほうが損失大。",
-      "投資より睡眠投資。確実にリターンあり。"
-    ];
-    response = moneyAdvice[Math.floor(Math.random() * moneyAdvice.length)];
-  } else if (isHealth) {
-    const healthAdvice = [
-      "体調不良の原因は睡眠不足かもしれない。",
-      "健康の基本は睡眠。今すぐ実践しろ。",
-      "疲れてるなら寝るのが最優先。",
-      "不調の時こそ早く寝て回復させろ。"
-    ];
-    response = healthAdvice[Math.floor(Math.random() * healthAdvice.length)];
-  } else if (isFuture) {
-    const futureAdvice = [
-      "将来の不安は明日の頭で整理しろ。",
-      "未来は寝て起きてから考えても間に合う。",
-      "不安な夜の判断は大体間違ってる。",
-      "今できることは睡眠確保のみ。"
-    ];
-    response = futureAdvice[Math.floor(Math.random() * futureAdvice.length)];
+  if (Array.isArray(data) && data[0]?.generated_text) {
+    generatedText = data[0].generated_text;
+  } else if (data.generated_text) {
+    generatedText = data.generated_text;
   } else {
-    // 汎用応答
-    const generalAdvice = [
-      "夜に考えても答えは出ない。",
-      "明日の脳で考え直せ。",
-      "睡眠不足で判断力低下中。",
-      "今は寝る以外に正解なし。"
-    ];
-    response = generalAdvice[Math.floor(Math.random() * generalAdvice.length)];
+    throw new Error("Unexpected API response format");
+  }
+
+  // プロンプトを除去
+  generatedText = generatedText.replace(prompt, "").trim();
+  
+  // 「いいから寝ろ」で終わるように調整
+  if (!generatedText.includes("いいから寝ろ") && !generatedText.includes("寝ろ")) {
+    generatedText += "いいから寝ろ";
   }
   
-  // 夜間モードでより厳しく
-  if (nightMode) {
-    const nightPrefix = [
-      "こんな時間に悩むな。",
-      "夜更かしで考えるな。",
-      "深夜の思考は9割無駄。",
-    ];
-    response = nightPrefix[Math.floor(Math.random() * nightPrefix.length)] + response;
-  }
-  
-  // 論理的な理由を追加
-  const reasons = [
-    "夜は判断力が低下する。",
-    "睡眠不足は思考を歪める。",
-    "疲れた脳では良い案は出ない。",
-    "明日の朝が一番冷静になれる。"
-  ];
-  const reason = reasons[Math.floor(Math.random() * reasons.length)];
-  
-  const fullResponse = `${response}${reason}`;
-  
-  // 140字制限（#いいから寝ろ込み）
+  // 140字制限
   const ending = "#いいから寝ろ";
   const maxLength = 140 - ending.length;
   
-  let finalResponse = fullResponse;
-  if (finalResponse.length > maxLength) {
-    finalResponse = finalResponse.slice(0, maxLength - 3) + "...";
+  if (generatedText.length > maxLength) {
+    generatedText = generatedText.slice(0, maxLength - 3) + "...";
   }
   
-  return finalResponse + ending;
+  // ハッシュタグがなければ追加
+  if (!generatedText.includes("#いいから寝ろ")) {
+    generatedText += ending;
+  }
+  
+  return generatedText;
+}
+
+// フォールバック用のパターンベース応答
+function generateFallbackResponse(input: string): string {
+  const nightMode = isNight();
+  const isWork = /仕事|会社|上司|同僚|残業|職場|ストレス|プレッシャー/.test(input);
+  const isRelation = /恋人|彼氏|彼女|友達|人間関係|家族|親|結婚/.test(input);
+  
+  let response = "";
+  
+  if (isWork) {
+    response = "会社の件は夜に悩んでも給料は上がらない。";
+  } else if (isRelation) {
+    response = "人間関係は寝て起きれば案外どうでもよくなる。";
+  } else {
+    response = "夜に考えても答えは出ない。";
+  }
+  
+  if (nightMode) {
+    response = "こんな時間に悩むな。" + response;
+  }
+  
+  return response + "明日の朝が一番冷静になれる。いいから寝ろ#いいから寝ろ";
 }
 
 async function* stream(text: string) {
@@ -199,7 +209,7 @@ form.addEventListener("submit", async (e) => {
   cancelDim();
   
   try {
-    updateStatus(" AIが考え中...");
+    updateStatus("🧠 LLMが考え中...");
     const response = await generate(text);
     updateStatus("");
     
@@ -216,7 +226,7 @@ form.addEventListener("submit", async (e) => {
     
   } catch (error) {
     console.error("Error:", error);
-    responseArea.textContent = "AIがバグった。でも気にするな。いいから寝ろ。";
+    responseArea.textContent = "AIがバグった。でも気にするな。いいから寝ろ#いいから寝ろ";
     updateStatus("");
     actions.style.display = "flex";
     
