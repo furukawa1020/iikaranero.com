@@ -4,7 +4,7 @@
 import { Handler } from '@netlify/functions';
 
 const HF_MODEL = "Qwen/Qwen2.5-7B-Instruct";
-const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}/v1/chat/completions`;
+const HF_API_URL = "https://api-inference.huggingface.co/v1/chat/completions";
 
 export const handler: Handler = async (event) => {
   // CORSヘッダー
