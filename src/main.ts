@@ -65,74 +65,48 @@ async function generate(input: string): Promise<string> {
 
 async function generateWithLLM(input: string): Promise<string> {
   const nightMode = isNight();
-  
-  if (!HF_TOKEN) {
-    console.warn("⚠️ HF_TOKEN not set. Please add it to .env file");
-    throw new Error("API Token not configured");
-  }
 
-  // OpenAI互換のChat Completions APIを使用
+  // システムプロンプト
   const systemPrompt = `あなたは「いいから寝ろ.com」のAIアシスタントです。
 ユーザーの悩みに対して、論理的かつやや冷淡に「今は寝ろ」と説得してください。
 
 【重要ルール】
-- 50-80文字程度で簡潔に応答
+- 100-140文字程度で簡潔に応答
 - 夜に悩むことの無意味さを論理的に指摘
 - 必ず「いいから寝ろ」で終える
 - 説教臭くならず、理性的だが冷たい口調${nightMode ? '\n- 夜間なのでより厳しく短く応答' : ''}`;
 
-  console.log("🔄 LLM API呼び出し中...", HF_MODEL);
+  console.log("🔄 Netlify Function経由でLLM呼び出し中...");
   
-  // シンプルなテキスト生成プロンプト
-  const fullPrompt = `${systemPrompt}\n\nユーザー: ${input}\n\nアシスタント:`;
-  
-  const response = await fetch(HF_API_URL, {
+  // Netlify Functionを呼び出し（CORS問題なし）
+  const response = await fetch('/.netlify/functions/ai-generate', {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${HF_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      inputs: fullPrompt,
-      parameters: {
-        max_new_tokens: 100,
-        temperature: 0.8,
-        top_p: 0.9,
-        do_sample: true,
-        return_full_text: false
-      },
-      options: {
-        wait_for_model: true,
-        use_cache: false
-      }
+      input: input,
+      systemPrompt: systemPrompt
     })
   });
 
-  console.log("📡 API Response Status:", response.status);
+  console.log("📡 Netlify Function Response Status:", response.status);
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error("❌ API Error:", response.status, errorText);
-    throw new Error(`API Error: ${response.status} - ${errorText}`);
+    const errorData = await response.json();
+    console.error("❌ Netlify Function Error:", response.status, errorData);
+    throw new Error(`Function Error: ${response.status} - ${errorData.error || 'Unknown error'}`);
   }
 
   const data = await response.json();
-  console.log("📦 API Response Data:", data);
+  console.log("📦 Netlify Function Response:", data);
   
-  let generatedText = "";
-  
-  // Inference APIの標準フォーマットからテキスト抽出
-  if (Array.isArray(data) && data[0]?.generated_text) {
-    generatedText = data[0].generated_text.trim();
-  } else if (data.generated_text) {
-    generatedText = data.generated_text.trim();
-  } else if (typeof data === 'string') {
-    generatedText = data.trim();
-  } else {
-    console.error("❌ Unexpected format:", data);
-    throw new Error("Unexpected API response format");
+  if (!data.success || !data.text) {
+    console.error("❌ Invalid response format:", data);
+    throw new Error("Invalid response from function");
   }
 
+  let generatedText = data.text.trim();
   console.log("✅ Generated Text (raw):", generatedText);
   
   // プロンプト部分を削除
